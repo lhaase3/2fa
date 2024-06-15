@@ -1,5 +1,7 @@
-import Link from "next/link";
-import { headers } from "next/headers";
+"use client";
+
+import { useState } from "react";
+//import { headers } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import { SubmitButton } from "./submit-button";
@@ -9,15 +11,25 @@ export default function Login({
 }: {
   searchParams: { message: string };
 }) {
+
+    const generateCode = () => {
+        const digits = '0123456789';
+        const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        let code = '';
+        for (let i = 0; i < 3; i++) {
+            code += digits[Math.floor(Math.random() * digits.length)];
+            code += letters[Math.floor(Math.random() * letters.length)];
+        }
+        return code.split('').sort(() => 0.5 - Math.random()).join('');
+    };
+
   const signIn = async (formData: FormData) => {
     "use server";
 
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
-    //const number = formData.get("number") as string;
     const supabase = createClient();
-    console.log(email);
-    console.log(password);
+
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -27,33 +39,14 @@ export default function Login({
       return redirect("/login?message=Could not authenticate user");
     }
 
+    const code = generateCode();
+
+    await sendEmail(email, code);
+
+    await supabase.from('2fa_codes').insert([{ email, code }]);
+    
     return redirect("/2fa");
   };
-
-  /*
-  const signUp = async (formData: FormData) => {
-    "use server";
-
-    const origin = headers().get("origin");
-    const email = formData.get("email") as string;
-    const password = formData.get("password") as string;
-    const supabase = createClient();
-
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${origin}/auth/callback`,
-      },
-    });
-
-    if (error) {
-      return redirect("/login?message=Could not authenticate user");
-    }
-
-    return redirect("/login?message=Check email to continue sign in process");
-  };
-  */
 
   return (
     <div className="flex-1 flex flex-col w-full px-8 sm:max-w-md justify-center gap-2">
@@ -109,12 +102,6 @@ export default function Login({
         >
           Sign In
         </SubmitButton>
-        {/* <Link
-          href="/register"
-          className="border border-foreground/20 rounded-md px-4 py-2 text-foreground text-center mb-2"
-        >
-          Register
-        </Link> */}
         <div className="mt-4 text-center">
           <span>New user? </span>
           <Link href="/register" className="text-blue-500 hover:underline">
